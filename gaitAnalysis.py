@@ -894,6 +894,11 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True):
     # for each training/testing fold configuration
     # split the data into k folds
     for f in np.arange(k):
+
+        # TODO: change the way to compute ind_test to get random or sequential but considering proportions of labels in the data
+        # TODO: another way would be to randomize the order of feature and labels (equally)
+        # np.random.randint()  / look for permute, sort ?
+
         ind_test = np.arange(f,f+fold_size)
         test = features[ind_test].copy()
         train = np.delete(features, ind_test, 0)
@@ -977,6 +982,7 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True):
         FN_test[f] = len(np.where(predict[true_pos]==-1)[0])
         TN_test[f] = len(np.where(predict[true_neg]==-1)[0])
 
+        # 
         # TPR == sensitivity
         TPR_test[f] = TP_test/len(true_pos[0])
         # TNR == specificity
@@ -1159,3 +1165,5 @@ def load_data():
     segm = read_segmentation_npy()
 
     return data, fusion, mask, segm
+
+
