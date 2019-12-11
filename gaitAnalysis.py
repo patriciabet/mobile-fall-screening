@@ -867,6 +867,133 @@ def label_features(matrix, indPos=index_faller, indExc=index_excluded):
     return feats, labels
 
 
+def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True):
+
+    '''
+        Parameters:
+            features - feature matrix 
+            labels   - label matrix with 1 for positive (fallers) 
+             and -1 for negative (non-fallers)
+            n_cutoff - numbers of cuttoff points to compute
+            k - number of folds in cross validation
+
+    '''
+    
+    N = feature.shape[0]
+    fold_size = N//k
+
+    # arrays to store each fold's result
+    ACC_test = np.array(k)
+    TP_test = np.array(k)
+    FP_test = np.array(k)
+    FN_test = np.array(k)
+    TN_test = np.array(k)
+    TPR_test = np.array(k)
+    TNR_test = np.array(k)
+
+    # for each training/testing fold configuration
+    # split the data into k folds
+    for f in np.arange(k):
+        ind_test = np.arange(f,f+fold_size)
+        test = features[ind_test].copy()
+        train = np.delete(features, ind_test, 0)
+
+        test_labels = labels(ind_test).copy()
+        train_labels = np.delete(labels, ind_test, 0)
+
+        # compute the optimum cutoff point for the training folds
+        maxv = np.max(train)
+        minv = np.min(train)
+        opt_cut = 0
+        opt_acc = 0
+        opt_sen = 0
+        opt_spe = 0
+
+        # for each cuttof point 'c'
+        for c in np.linspace(minv, maxv, n_cutoff):
+            neg = np.where(train < c)
+            pos = np.where(train >= c)
+
+            # create the vector for the predicted labels
+            predict = np.ones(len(train_labels)).astype(int)
+            predict[neg] = -1
+            
+            true_neg = np.where(train_labels == -1)
+            true_pos = np.where(train_labels == 1)
+
+            correct = np.where(train_labels==predict)
+
+            ACC = len(correct[0])/float(len(train_labels))
+
+            TP = len(np.where(predict[true_pos]==1)[0])
+            FP = len(np.where(predict[true_neg]==1)[0])
+            FN = len(np.where(predict[true_pos]==-1)[0])
+            TN = len(np.where(predict[true_neg]==-1)[0])
+
+            # TPR == sensitivity
+            TPR = TP/len(true_pos[0])
+            # TNR == specificity
+            TNR = TN/len(true_neg[0])
+
+            if (np.abs(TPR-TNR) < 0.05):
+                opt_predict = predict
+                opt_cut = c
+                opt_acc = ACC
+                opt_sen  = TPR
+                opt_spe  = TNR
+            elif (c == minv): 
+                opt_predict = predict
+        
+            if (verbose):
+                if (c == opt_cut):
+                    print("*************** Equal Error Rate **************************")
+                print("predict" % (predict))
+                print("threshold %.2f, Accuracy=%.2f" % (c, ACC))
+                print("\tTP=%.2f, TN=%.2f, FP=%.2f, FN=%.2f" % (TP, TN, FP, FN))
+                print("\tSensitivity (TPR)=%.2f, Specificity (TNR)=%.2f\n" % (TPR, TNR))
+
+        print("Optimal threshold: %.3f, Acc=%.4f, Sens=%.4f, Spec=%.4f" % (opt_cut, opt_acc, opt_sen, opt_spe))
+
+        # apply the optimal threshold in the testing fold
+
+        # create negative and positives for the testing fold
+        neg = np.where(test < opt_cut)
+        pos = np.where(test >= opt_cut)
+
+        # create the vector for the predicted labels
+        predict = np.ones(len(test_labels)).astype(int)
+        predict[neg] = -1
+        
+        true_neg = np.where(test_labels == -1)
+        true_pos = np.where(test_labels == 1)
+
+        correct = np.where(test_labels==predict)
+    
+        # compute accuracy, TP, TN, FP, FN, TPR and TNR for the results of the testing fold
+        ACC_test[f] = len(correct[0])/float(len(test_labels))
+
+        TP_test[f] = len(np.where(predict[true_pos]==1)[0])
+        FP_test[f] = len(np.where(predict[true_neg]==1)[0])
+        FN_test[f] = len(np.where(predict[true_pos]==-1)[0])
+        TN_test[f] = len(np.where(predict[true_neg]==-1)[0])
+
+        # TPR == sensitivity
+        TPR_test[f] = TP_test/len(true_pos[0])
+        # TNR == specificity
+        TNR_test[f] = TN_test/len(true_neg[0])
+
+    print("    \tMean\tStd")
+    print("ACC:\t%.2f\t%2.f" % (np.mean(ACC_test), np.std(ACC_test)))
+    print("TP :\t%.2f\t%2.f" % (np.mean(TP_test), np.std(TP_test)))
+    print("FP :\t%.2f\t%2.f" % (np.mean(FP_test), np.std(FP_test)))
+    print("FN :\t%.2f\t%2.f" % (np.mean(FN_test), np.std(FN_test)))
+    print("TN :\t%.2f\t%2.f" % (np.mean(TN_test), np.std(TN_test)))
+    print("TPR:\t%.2f\t%2.f" % (np.mean(TPR_test), np.std(TPR_test)))
+    print("TNR:\t%.2f\t%2.f" % (np.mean(TNR_test), np.std(TNR_test)))
+
+
+
+
 def cutoff_points(feature, labels, n_cutoff=100, verbose=True):
 
     '''
@@ -938,7 +1065,6 @@ def cutoff_points(feature, labels, n_cutoff=100, verbose=True):
     print("Optimal threshold: %.3f, Acc=%.4f, Sens=%.4f, Spec=%.4f" % (opt_cut, opt_acc, opt_sen, opt_spe))
 
     return opt_predict
-
 
 
 def late_fusion(feat, label):
