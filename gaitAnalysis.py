@@ -21,10 +21,10 @@ from itertools import product
 
 
 # Moacir
-#directory = '/home/maponti/Repos/mobile-fall-screening/data/'
+directory = '/home/maponti/Repos/mobile-fall-screening/dados_acelerometro/'
 
 #Patricia
-directory = 'C:\\Users\\Patrícia Bet\\Desktop\\Dados Acelerômetro\\'
+#directory = 'C:\\Users\\Patrícia Bet\\Desktop\\Dados Acelerômetro\\'
 
 #lista de idades(grupos)
 index_60 = [0, 6, 8, 9, 10, 11, 13, 15, 18, 20, 23, 24, 25, 27, 28, 31, 33, 34, 35, 36, 37, 41, 43, 45, 46, 47, 49, 50, 52, 54, 55, 60, 63, 65, 69, 70, 72, 74, 75, 76]
@@ -864,10 +864,10 @@ def label_features(matrix, indPos=index_faller, indExc=index_excluded):
     feats = np.asarray(feats)
     labels = np.asarray(labels)
 
-    return feats, labels
+    return np.transpose(feats), labels
 
 
-def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True):
+def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True, mode="Stratified", seed=13):
 
     '''
         Parameters:
@@ -882,14 +882,29 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True):
     N = feature.shape[0]
     fold_size = N//k
 
+    N_pos = np.where(labels==1)[0].shape[0]
+    N_neg = np.where(labels==-1)[0].shape[0]
+
+    Prop_pos = N_pos/float(N_neg)
+
+    print(N_pos)
+    print(N_neg)
+    print(Prop_pos)
+
     # arrays to store each fold's result
-    ACC_test = np.array(k)
-    TP_test = np.array(k)
-    FP_test = np.array(k)
-    FN_test = np.array(k)
-    TN_test = np.array(k)
-    TPR_test = np.array(k)
-    TNR_test = np.array(k)
+    ACC_test = np.zeros(k)
+    TP_test = np.zeros(k)
+    FP_test = np.zeros(k)
+    FN_test = np.zeros(k)
+    TN_test = np.zeros(k)
+    TPR_test = np.zeros(k)
+    TNR_test = np.zeros(k)
+
+    np.random.seed(seed)
+
+    indices = np.random.permutation(N)
+
+    indices_strat = np.array([27, 57, 9, 14, 10, 22, 59, 41, 53, 65, 28, 36, 4, 72, 55, 50, 67, 30, 44, 43, 18, 70, 11, 68, 56, 6, 69, 66, 39, 40, 12, 31, 26, 54, 15, 34, 61, 35, 60, 7, 2, 58, 33, 51, 19, 23, 3, 5, 47, 21, 48, 17, 16, 71, 62, 64, 42, 49, 32, 52, 8, 13, 63, 29, 1, 46, 38, 20, 24, 45, 25, 37, 0])
 
     # for each training/testing fold configuration
     # split the data into k folds
@@ -899,12 +914,31 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True):
         # TODO: another way would be to randomize the order of feature and labels (equally)
         # np.random.randint()  / look for permute, sort ?
 
-        ind_test = np.arange(f,f+fold_size)
-        test = features[ind_test].copy()
-        train = np.delete(features, ind_test, 0)
+        if (mode=="Random"):
+            ind_fold= np.arange(f,f+fold_size)
+            ind_test= indices[ind_fold]
+        elif (mode=="Sequential"):
+            ind_test= np.arange(f,f+fold_size)
+        elif (mode=="Fixed"):
+            ind_fold= np.arange(f,f+fold_size)
+            ind_test= indices_strat[ind_fold]
 
-        test_labels = labels(ind_test).copy()
+        test = feature[ind_test].copy()
+        train = np.delete(feature, ind_test, 0)
+
+        test_labels = labels[ind_test].copy()
         train_labels = np.delete(labels, ind_test, 0)
+
+        N_postr = np.where(train_labels==1)[0].shape[0]
+        N_negtr = np.where(train_labels==-1)[0].shape[0]
+        Prop_postr = N_postr/float(N_negtr)
+        print(Prop_postr)
+
+        N_poste = np.where(test_labels==1)[0].shape[0]
+        N_negte = np.where(test_labels==-1)[0].shape[0]
+        Prop_poste = N_poste/float(N_negte)
+        print(Prop_poste)
+
 
         # compute the optimum cutoff point for the training folds
         maxv = np.max(train)
@@ -921,14 +955,15 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True):
 
             # create the vector for the predicted labels
             predict = np.ones(len(train_labels)).astype(int)
+
             predict[neg] = -1
             
             true_neg = np.where(train_labels == -1)
             true_pos = np.where(train_labels == 1)
 
-            correct = np.where(train_labels==predict)
+            correct, = np.where(train_labels==predict)
 
-            ACC = len(correct[0])/float(len(train_labels))
+            ACC = len(correct)/float(len(train_labels))
 
             TP = len(np.where(predict[true_pos]==1)[0])
             FP = len(np.where(predict[true_neg]==1)[0])
@@ -968,37 +1003,35 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True):
         # create the vector for the predicted labels
         predict = np.ones(len(test_labels)).astype(int)
         predict[neg] = -1
-        
+
         true_neg = np.where(test_labels == -1)
         true_pos = np.where(test_labels == 1)
 
-        correct = np.where(test_labels==predict)
-    
+        correct,  = np.where(test_labels==predict)
+
         # compute accuracy, TP, TN, FP, FN, TPR and TNR for the results of the testing fold
-        ACC_test[f] = len(correct[0])/float(len(test_labels))
+        ACC_test[f] = len(correct)/float(len(test_labels))
 
         TP_test[f] = len(np.where(predict[true_pos]==1)[0])
         FP_test[f] = len(np.where(predict[true_neg]==1)[0])
         FN_test[f] = len(np.where(predict[true_pos]==-1)[0])
         TN_test[f] = len(np.where(predict[true_neg]==-1)[0])
 
-        # 
         # TPR == sensitivity
-        TPR_test[f] = TP_test/len(true_pos[0])
+        TPR_test[f] = TP_test[f]/len(true_pos[0])
         # TNR == specificity
-        TNR_test[f] = TN_test/len(true_neg[0])
+        TNR_test[f] = TN_test[f]/len(true_neg[0])
 
     print("    \tMean\tStd")
-    print("ACC:\t%.2f\t%2.f" % (np.mean(ACC_test), np.std(ACC_test)))
-    print("TP :\t%.2f\t%2.f" % (np.mean(TP_test), np.std(TP_test)))
-    print("FP :\t%.2f\t%2.f" % (np.mean(FP_test), np.std(FP_test)))
-    print("FN :\t%.2f\t%2.f" % (np.mean(FN_test), np.std(FN_test)))
-    print("TN :\t%.2f\t%2.f" % (np.mean(TN_test), np.std(TN_test)))
-    print("TPR:\t%.2f\t%2.f" % (np.mean(TPR_test), np.std(TPR_test)))
-    print("TNR:\t%.2f\t%2.f" % (np.mean(TNR_test), np.std(TNR_test)))
+    print("ACC:\t%.2f\t%.2f" % (np.mean(ACC_test), np.std(ACC_test)))
+    print("TP :\t%.2f\t%.2f" % (np.mean(TP_test), np.std(TP_test)))
+    print("FP :\t%.2f\t%.2f" % (np.mean(FP_test), np.std(FP_test)))
+    print("FN :\t%.2f\t%.2f" % (np.mean(FN_test), np.std(FN_test)))
+    print("TN :\t%.2f\t%.2f" % (np.mean(TN_test), np.std(TN_test)))
+    print("TPR:\t%.2f\t%.2f" % (np.mean(TPR_test), np.std(TPR_test)))
+    print("TNR:\t%.2f\t%.2f" % (np.mean(TNR_test), np.std(TNR_test)))
 
-
-
+    print(indices)
 
 def cutoff_points(feature, labels, n_cutoff=100, verbose=True):
 
