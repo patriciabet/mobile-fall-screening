@@ -867,7 +867,7 @@ def label_features(matrix, indPos=index_faller, indExc=index_excluded):
     return np.transpose(feats), labels
 
 
-def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True, mode="Stratified", seed=13):
+def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fixed", seed=13):
 
     '''
         Parameters:
@@ -887,9 +887,9 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True, mode="Str
 
     Prop_pos = N_pos/float(N_neg)
 
-    print(N_pos)
-    print(N_neg)
-    print(Prop_pos)
+    #print(N_pos)
+    #print(N_neg)
+    #print(Prop_pos)
 
     # arrays to store each fold's result
     ACC_test = np.zeros(k)
@@ -902,17 +902,17 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True, mode="Str
 
     np.random.seed(seed)
 
-    indices = np.random.permutation(N)
+    #indices = np.random.permutation(N)
+    
+    indices_strat = np.array([0, 2, 17, 30, 31, 44, 57, 69, 1, 4, 19, 32, 33, 45, 58, 70, 3, 5, 20, 34, 37, 46, 60, 72, 6, 7, 21, 35, 43, 47, 61, 8, 10, 22, 36, 48, 51, 62, 9, 11, 23, 38, 49, 54, 63, 12, 14, 25, 39, 50, 55, 65, 13, 18, 27, 40, 52, 59, 66, 15, 24, 28, 41, 53, 64, 67, 16, 26, 29, 42, 56, 68, 71]) #10-fold
 
-    indices_strat = np.array([27, 57, 9, 14, 10, 22, 59, 41, 53, 65, 28, 36, 4, 72, 55, 50, 67, 30, 44, 43, 18, 70, 11, 68, 56, 6, 69, 66, 39, 40, 12, 31, 26, 54, 15, 34, 61, 35, 60, 7, 2, 58, 33, 51, 19, 23, 3, 5, 47, 21, 48, 17, 16, 71, 62, 64, 42, 49, 32, 52, 8, 13, 63, 29, 1, 46, 38, 20, 24, 45, 25, 37, 0])
+    #indices_strat = np.array([0, 2, 9, 11, 17, 23, 30, 31, 38, 44, 49, 54, 57, 63, 69, 1, 4, 12, 14, 19, 25, 32, 33, 39, 45, 50, 55, 58, 65, 70, 3, 5, 13, 18, 20, 27, 34, 37, 40, 46, 52, 59, 60, 66, 72, 6, 7, 15, 21, 24, 28, 35, 41, 43, 47, 53, 61, 64, 67, 8, 10, 16, 22, 26, 29, 36, 42, 48, 51, 56, 62, 68, 71]) #5-fold
+
+    #indices_strat = np.array(range(73)) #Leave-one-out
 
     # for each training/testing fold configuration
     # split the data into k folds
     for f in np.arange(k):
-
-        # TODO: change the way to compute ind_test to get random or sequential but considering proportions of labels in the data
-        # TODO: another way would be to randomize the order of feature and labels (equally)
-        # np.random.randint()  / look for permute, sort ?
 
         if (mode=="Random"):
             ind_fold= np.arange(f,f+fold_size)
@@ -922,7 +922,7 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True, mode="Str
         elif (mode=="Fixed"):
             ind_fold= np.arange(f,f+fold_size)
             ind_test= indices_strat[ind_fold]
-
+           
         test = feature[ind_test].copy()
         train = np.delete(feature, ind_test, 0)
 
@@ -932,14 +932,11 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True, mode="Str
         N_postr = np.where(train_labels==1)[0].shape[0]
         N_negtr = np.where(train_labels==-1)[0].shape[0]
         Prop_postr = N_postr/float(N_negtr)
-        print(Prop_postr)
-
+                
         N_poste = np.where(test_labels==1)[0].shape[0]
         N_negte = np.where(test_labels==-1)[0].shape[0]
         Prop_poste = N_poste/float(N_negte)
-        print(Prop_poste)
-
-
+        
         # compute the optimum cutoff point for the training folds
         maxv = np.max(train)
         minv = np.min(train)
@@ -952,19 +949,17 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True, mode="Str
         for c in np.linspace(minv, maxv, n_cutoff):
             neg = np.where(train < c)
             pos = np.where(train >= c)
-
+            
             # create the vector for the predicted labels
             predict = np.ones(len(train_labels)).astype(int)
-
             predict[neg] = -1
-            
+        
             true_neg = np.where(train_labels == -1)
             true_pos = np.where(train_labels == 1)
 
             correct, = np.where(train_labels==predict)
 
-            ACC = len(correct)/float(len(train_labels))
-
+            ACC = len(correct)/float(len(train_labels))       
             TP = len(np.where(predict[true_pos]==1)[0])
             FP = len(np.where(predict[true_neg]==1)[0])
             FN = len(np.where(predict[true_pos]==-1)[0])
@@ -1002,25 +997,26 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True, mode="Str
 
         # create the vector for the predicted labels
         predict = np.ones(len(test_labels)).astype(int)
-        predict[neg] = -1
+        predict[neg] = -1 
 
         true_neg = np.where(test_labels == -1)
         true_pos = np.where(test_labels == 1)
-
+     
         correct,  = np.where(test_labels==predict)
-
+        
         # compute accuracy, TP, TN, FP, FN, TPR and TNR for the results of the testing fold
         ACC_test[f] = len(correct)/float(len(test_labels))
-
         TP_test[f] = len(np.where(predict[true_pos]==1)[0])
         FP_test[f] = len(np.where(predict[true_neg]==1)[0])
         FN_test[f] = len(np.where(predict[true_pos]==-1)[0])
         TN_test[f] = len(np.where(predict[true_neg]==-1)[0])
-
+        
         # TPR == sensitivity
         TPR_test[f] = TP_test[f]/len(true_pos[0])
+        
         # TNR == specificity
         TNR_test[f] = TN_test[f]/len(true_neg[0])
+        
 
     print("    \tMean\tStd")
     print("ACC:\t%.2f\t%.2f" % (np.mean(ACC_test), np.std(ACC_test)))
@@ -1031,8 +1027,10 @@ def cross_validation(feature, labels, n_cutoff=100, k=5, verbose=True, mode="Str
     print("TPR:\t%.2f\t%.2f" % (np.mean(TPR_test), np.std(TPR_test)))
     print("TNR:\t%.2f\t%.2f" % (np.mean(TNR_test), np.std(TNR_test)))
 
-    print(indices)
+    #print(indices_strat)
 
+
+    
 def cutoff_points(feature, labels, n_cutoff=100, verbose=True):
 
     '''
