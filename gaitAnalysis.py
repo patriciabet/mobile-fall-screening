@@ -959,16 +959,19 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
 
             correct, = np.where(train_labels==predict)
 
-            ACC = len(correct)/float(len(train_labels))       
-            TP = len(np.where(predict[true_pos]==1)[0])
-            FP = len(np.where(predict[true_neg]==1)[0])
-            FN = len(np.where(predict[true_pos]==-1)[0])
-            TN = len(np.where(predict[true_neg]==-1)[0])
+            ACC = len(correct) / float(len(train_labels))       
+
+            (predict == 1) &
+
+            TP = np.sum(predict[true_pos]== 1) 
+            FP = np.sum(predict[true_neg]== 1)
+            FN = np.sum(predict[true_pos]==-1)
+            TN = np.sum(predict[true_neg]==-1)
 
             # TPR == sensitivity
-            TPR = TP/len(true_pos[0])
+            TPR = TP / float(len(true_pos[0]))
             # TNR == specificity
-            TNR = TN/len(true_neg[0])
+            TNR = TN / float(len(true_neg[0]))
 
             if (np.abs(TPR-TNR) < 0.05):
                 opt_predict = predict
@@ -1006,16 +1009,17 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
         
         # compute accuracy, TP, TN, FP, FN, TPR and TNR for the results of the testing fold
         ACC_test[f] = len(correct)/float(len(test_labels))
-        TP_test[f] = len(np.where(predict[true_pos]==1)[0])
-        FP_test[f] = len(np.where(predict[true_neg]==1)[0])
-        FN_test[f] = len(np.where(predict[true_pos]==-1)[0])
-        TN_test[f] = len(np.where(predict[true_neg]==-1)[0])
+        TP_test[f] = np.sum(predict[true_pos]== 1)
+        FP_test[f] = np.sum(predict[true_neg]== 1)
+
+        FN_test[f] = np.sum(predict[true_pos]==-1)
+        TN_test[f] = np.sum(predict[true_neg]==-1)
         
         # TPR == sensitivity
-        TPR_test[f] = TP_test[f]/len(true_pos[0])
+        TPR_test[f] = TP_test[f]/ float(len(true_pos[0]))
         
         # TNR == specificity
-        TNR_test[f] = TN_test[f]/len(true_neg[0])
+        TNR_test[f] = TN_test[f]/ float(len(true_neg[0]))
         
 
     print("    \tMean\tStd")
