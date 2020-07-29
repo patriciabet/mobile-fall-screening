@@ -20,6 +20,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from itertools import product
 
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import roc_auc_score
 
 # Moacir
 directory = '/home/maponti/Repos/mobile-fall-screening/dados_acelerometro/'
@@ -167,7 +168,7 @@ def data_fusion(data, savefile=True, filename="data_fusion.npy"):
 
 
 def read_data_npy(filename="data_fusion.npy"):
-    return np.load(filename)
+    return np.load(filename, allow_pickle=True)
 
 
 
@@ -400,7 +401,7 @@ def data_segmentTS_TUG(tug, sumFilterSize=300, savefile=True, filename="segmenta
 
 
 def read_segmentation_npy(filename="segmentation.npy"):
-    return np.load(filename)
+    return np.load(filename, allow_pickle=True)
 
 
 
@@ -761,7 +762,7 @@ def load_masks(filename='tug_masks.npy'):
         Parameters:
             filename - with .npy extension
     '''
-    return np.load(filename)
+    return np.load(filename, allow_pickle=True)
 
 
 ###################
@@ -865,7 +866,8 @@ def label_features(matrix, indPos=index_faller, indExc=index_excluded):
     feats = np.asarray(feats)
     labels = np.asarray(labels)
 
-    return np.transpose(feats), labels
+    #return np.transpose(feats), labels
+    return feats, labels
 
 
 def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fixed", seed=13):
@@ -879,21 +881,22 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
             k - number of folds in cross validation
 
     '''
-    
     N = feature.shape[0]
     fold_size = N//k
 
-    N_pos = np.where(labels==1)[0].shape[0]
-    N_neg = np.where(labels==-1)[0].shape[0]
+    N_pos = np.sum(labels==1)
+    N_neg = np.sum(labels==-1)
 
     Prop_pos = N_pos/float(N_neg)
 
-    #print(N_pos)
-    #print(N_neg)
-    #print(Prop_pos)
+    print("=========================================")
+    print("%d-fold Cross Validation, fold size = %d" % (k, fold_size))
+    print("=========================================")
+    print("Dataset N = %d , positives = %d, negatives = %d" % (N, N_pos, N_neg))
 
     # arrays to store each fold's result
     ACC_test = np.zeros(k)
+    AUC_test = np.zeros(k)
     TP_test = np.zeros(k)
     FP_test = np.zeros(k)
     FN_test = np.zeros(k)
@@ -903,25 +906,35 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
 
     np.random.seed(seed)
 
-    #indices = np.random.permutation(N)
-    
-    indices_strat = np.array([0, 2, 17, 30, 31, 44, 57, 69, 1, 4, 19, 32, 33, 45, 58, 70, 3, 5, 20, 34, 37, 46, 60, 72, 6, 7, 21, 35, 43, 47, 61, 8, 10, 22, 36, 48, 51, 62, 9, 11, 23, 38, 49, 54, 63, 12, 14, 25, 39, 50, 55, 65, 13, 18, 27, 40, 52, 59, 66, 15, 24, 28, 41, 53, 64, 67, 16, 26, 29, 42, 56, 68, 71]) #10-fold
-
-    #indices_strat = np.array([0, 2, 9, 11, 17, 23, 30, 31, 38, 44, 49, 54, 57, 63, 69, 1, 4, 12, 14, 19, 25, 32, 33, 39, 45, 50, 55, 58, 65, 70, 3, 5, 13, 18, 20, 27, 34, 37, 40, 46, 52, 59, 60, 66, 72, 6, 7, 15, 21, 24, 28, 35, 41, 43, 47, 53, 61, 64, 67, 8, 10, 16, 22, 26, 29, 36, 42, 48, 51, 56, 62, 68, 71]) #5-fold
-
-    #indices_strat = np.array(range(73)) #Leave-one-out
+    if (mode == "Random"):
+        indices = np.random.permutation(N)
+    if (k == 10):
+        indices_strat = np.array([0, 2, 17, 30, 31, 44, 57, 69, 1, 4, 19, 32, 33, 45, 58, 70, 3, 5, 20, 34, 37, 46, 60, 72, 6, 7, 21, 35, 43, 47, 61, 8, 10, 22, 36, 48, 51, 62, 9, 11, 23, 38, 49, 54, 63, 12, 14, 25, 39, 50, 55, 65, 13, 18, 27, 40, 52, 59, 66, 15, 24, 28, 41, 53, 64, 67, 16, 26, 29, 42, 56, 68, 71]) #10-fold
+    elif (k == 5):
+        indices_strat = np.array([0, 2, 9, 11, 17, 23, 30, 31, 38, 44, 49, 54, 57, 63, 69, 1, 4, 12, 14, 19, 25, 32, 33, 39, 45, 50, 55, 58, 65, 70, 3, 5, 13, 18, 20, 27, 34, 37, 40, 46, 52, 59, 60, 66, 72, 6, 7, 15, 21, 24, 28, 35, 41, 43, 47, 53, 61, 64, 67, 8, 10, 16, 22, 26, 29, 36, 42, 48, 51, 56, 62, 68, 71]) #5-fold
+    elif (k == 74):
+        indices_strat = np.array(range(73)) #Leave-one-out
 
     # for each training/testing fold configuration
     # split the data into k folds
     for f in np.arange(k):
 
+        # inicial position of fold
+        pos = f*fold_size
+
+        # final position of fold (if final, goes to the end)
+        if (f == k-1):
+            posf = N
+        else:
+            posf = pos+fold_size
+
         if (mode=="Random"):
-            ind_fold= np.arange(f,f+fold_size)
+            ind_fold= np.arange(pos,posf)
             ind_test= indices[ind_fold]
         elif (mode=="Sequential"):
-            ind_test= np.arange(f,f+fold_size)
+            ind_test= np.arange(pos,posf)
         elif (mode=="Fixed"):
-            ind_fold= np.arange(f,f+fold_size)
+            ind_fold= np.arange(pos,posf)
             ind_test= indices_strat[ind_fold]
            
         test = feature[ind_test].copy()
@@ -930,12 +943,15 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
         test_labels = labels[ind_test].copy()
         train_labels = np.delete(labels, ind_test, 0)
 
-        N_postr = np.where(train_labels==1)[0].shape[0]
-        N_negtr = np.where(train_labels==-1)[0].shape[0]
+        print("- Fold %d, from %d to %d" % (f, pos,posf))
+        N_postr = np.sum(train_labels==1)
+        N_negtr = np.sum(train_labels==-1)
+        print("\tTraining set: positives = %d, negatives = %d" % (N_postr, N_negtr))
         Prop_postr = N_postr/float(N_negtr)
                 
-        N_poste = np.where(test_labels==1)[0].shape[0]
-        N_negte = np.where(test_labels==-1)[0].shape[0]
+        N_poste = np.sum(test_labels==1)
+        N_negte = np.sum(test_labels==-1)
+        print("\tTest set: positives = %d, negatives = %d" % (N_poste, N_negte))
         Prop_poste = N_poste/float(N_negte)
         
         # compute the optimum cutoff point for the training folds
@@ -953,7 +969,8 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
             
             # create the vector for the predicted labels
             predict = np.ones(len(train_labels)).astype(int)
-            predict[neg] = -1
+            if (np.sum(train < c) > 0):
+                predict[neg] = -1
         
             true_neg = np.where(train_labels == -1)
             true_pos = np.where(train_labels == 1)
@@ -967,7 +984,7 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
             #FN = np.sum(predict[true_pos]==-1)
             #TN = np.sum(predict[true_neg]==-1)
 
-            TN, FP, FN, TP = confusion_matrix(labels, predict).ravel()
+            TN, FP, FN, TP = confusion_matrix(train_labels, predict).ravel()
             ACC = (TP+TN) / float(TN+FP+FN+TP)
 
             # TPR == sensitivity
@@ -975,7 +992,7 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
             # TNR == specificity
             TNR = TN / float(TN+FP)
 
-            AUC = roc_auc_score(labels,predict)
+            AUC = roc_auc_score(train_labels,predict)
 
             if (np.abs(TPR-TNR) < 0.05):
                 opt_predict = predict
@@ -988,11 +1005,11 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
         
             if (verbose):
                 if (c == opt_cut):
-                    print("*************** Equal Error Rate **************************")
-                print("predict" % (predict))
-                print("threshold %.2f, Accuracy=%.2f" % (c, ACC))
-                print("\tTP=%.2f, TN=%.2f, FP=%.2f, FN=%.2f" % (TP, TN, FP, FN))
-                print("\tSensitivity (TPR)=%.2f, Specificity (TNR)=%.2f\n" % (TPR, TNR))
+                    print("\t*** Equal Error Rate ***")
+                #print("\tpredict", (predict))
+                print("\tthreshold %.2f, Accuracy=%.2f" % (c, ACC))
+                print("\t\tTP=%.2f, TN=%.2f, FP=%.2f, FN=%.2f" % (TP, TN, FP, FN))
+                print("\t\tSensitivity (TPR)=%.2f, Specificity (TNR)=%.2f\n" % (TPR, TNR))
 
         print("Optimal threshold: %.3f, Acc=%.4f, Sens=%.4f, Spec=%.4f" % (opt_cut, opt_acc, opt_sen, opt_spe))
 
@@ -1004,31 +1021,23 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
 
         # create the vector for the predicted labels
         predict = np.ones(len(test_labels)).astype(int)
-        predict[neg] = -1 
+        if (np.sum(test < opt_cut) > 0):
+            predict[neg] = -1 
 
-        true_neg = np.where(test_labels == -1)
-        true_pos = np.where(test_labels == 1)
-        correct,  = np.where(test_labels==predict)
-        
         # compute accuracy, TP, TN, FP, FN, TPR and TNR for the results of the testing fold
-        ACC_test[f] = len(correct)/float(len(test_labels))
-        TP_test[f] = np.sum(predict[true_pos]== 1)
-        FP_test[f] = np.sum(predict[true_neg]== 1)
-        FN_test[f] = np.sum(predict[true_pos]==-1)
-        TN_test[f] = np.sum(predict[true_neg]==-1)
-
         TN_test[f], FP_test[f], FN_test[f], TP_test[f] = confusion_matrix(test_labels, predict).ravel()
+
         # TPR == sensitivity
         TPR_test[f] = TP_test[f] / float(TP_test[f]+FN_test[f])
         # TNR == specificity
         TNR_test[f] = TN_test[f] / float(TN_test[f]+FP_test[f])
+        
         ACC_test[f] = (TP_test[f]+TN_test[f]) / float(TN_test[f]+FP_test[f]+FN_test[f]+TP_test[f])
-
-        AUC_test[f] = roc_auc_score(labels,predict)
-
+        AUC_test[f] = roc_auc_score(test_labels,predict)
         
     print("    \tMean\tStd")
     print("ACC:\t%.2f\t%.2f" % (np.mean(ACC_test), np.std(ACC_test)))
+    print("AUC:\t%.2f\t%.2f" % (np.mean(AUC_test), np.std(AUC_test)))
     print("TP :\t%.2f\t%.2f" % (np.mean(TP_test), np.std(TP_test)))
     print("FP :\t%.2f\t%.2f" % (np.mean(FP_test), np.std(FP_test)))
     print("FN :\t%.2f\t%.2f" % (np.mean(FN_test), np.std(FN_test)))
@@ -1081,11 +1090,6 @@ def cutoff_points(feature, labels, n_cutoff=100, verbose=True):
 
         ACC = len(correct[0])/float(len(labels))
 
-        #TP = len(np.where(predict[true_pos]==1)[0])
-        #FP = len(np.where(predict[true_neg]==1)[0])
-        #FN = len(np.where(predict[true_pos]==-1)[0])
-        #TN = len(np.where(predict[true_neg]==-1)[0])
-    
         TN, FP, FN, TP = confusion_matrix(labels, predict).ravel()
         ACC = (TP+TN) / float(TN+FP+FN+TP)
 
@@ -1140,28 +1144,23 @@ def late_fusion(feat, label):
     decision = np.asarray(decision)
     decision.astype(int)
     
-    correct = np.where(label == decision)
- 
-    true_neg = np.where(label == -1)
-    true_pos = np.where(label == 1)
-
-    ACC = len(correct[0])/float(len(label))
-    TP = len(np.where(decision[true_pos]==1)[0])
-    FP = len(np.where(decision[true_neg]==1)[0])
-    FN = len(np.where(decision[true_pos]==-1)[0])
-    TN = len(np.where(decision[true_neg]==-1)[0])
+    TN, FP, FN, TP = confusion_matrix(label, decision).ravel()
+    ACC = (TP+TN) / float(TN+FP+FN+TP)
 
     # TPR == sensitivity
-    TPR = TP/len(true_pos[0])
+    TPR = TP / float(TP+FN)
     # TNR == specificity
-    TNR = TN/len(true_neg[0])
+    TNR = TN / float(TN+FP)
+
+    AUC = roc_auc_score(label, decision)
 
     print("Late fusion:")
     print("\tAccuracy=%.4f" % (ACC))
     print("\tTP=%.4f, TN=%.4f, FP=%.4f, FN=%.4f" % (TP, TN, FP, FN))
     print("\tSensitivity (TPR)=%.4f, Specificity (TNR)=%.4f\n" % (TPR, TNR))
+    print("\tArea ROC (AUC)=%.4f\n" % (AUC))
 
-    return predict, decision, correct
+    return predict, decision
 
 
 def early_fusion(feat, label):
