@@ -19,8 +19,16 @@ from numpy import genfromtxt
 from matplotlib.backends.backend_pdf import PdfPages
 from itertools import product
 
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import make_scorer
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import cross_validate
+from sklearn import svm
+from sklearn.metrics import auc
+from sklearn.metrics import plot_roc_curve
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
 
 # Moacir
 directory = '/home/maponti/Repos/mobile-fall-screening/dados_acelerometro/'
@@ -912,7 +920,7 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
         indices_strat = np.array([0, 2, 17, 30, 31, 44, 57, 69, 1, 4, 19, 32, 33, 45, 58, 70, 3, 5, 20, 34, 37, 46, 60, 72, 6, 7, 21, 35, 43, 47, 61, 8, 10, 22, 36, 48, 51, 62, 9, 11, 23, 38, 49, 54, 63, 12, 14, 25, 39, 50, 55, 65, 13, 18, 27, 40, 52, 59, 66, 15, 24, 28, 41, 53, 64, 67, 16, 26, 29, 42, 56, 68, 71]) #10-fold
     elif (k == 5):
         indices_strat = np.array([0, 2, 9, 11, 17, 23, 30, 31, 38, 44, 49, 54, 57, 63, 69, 1, 4, 12, 14, 19, 25, 32, 33, 39, 45, 50, 55, 58, 65, 70, 3, 5, 13, 18, 20, 27, 34, 37, 40, 46, 52, 59, 60, 66, 72, 6, 7, 15, 21, 24, 28, 35, 41, 43, 47, 53, 61, 64, 67, 8, 10, 16, 22, 26, 29, 36, 42, 48, 51, 56, 62, 68, 71]) #5-fold
-    elif (k == 74):
+    elif (k == 73):
         indices_strat = np.array(range(73)) #Leave-one-out
 
     # for each training/testing fold configuration
@@ -992,7 +1000,10 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
             # TNR == specificity
             TNR = TN / float(TN+FP)
 
-            AUC = roc_auc_score(train_labels,predict)
+            if (fold_size > 1):
+                AUC = roc_auc_score(train_labels,predict)
+            else:
+                AUC = 0
 
             if (np.abs(TPR-TNR) < 0.05):
                 opt_predict = predict
@@ -1033,7 +1044,11 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
         TNR_test[f] = TN_test[f] / float(TN_test[f]+FP_test[f])
         
         ACC_test[f] = (TP_test[f]+TN_test[f]) / float(TN_test[f]+FP_test[f]+FN_test[f]+TP_test[f])
-        AUC_test[f] = roc_auc_score(test_labels,predict)
+
+        if (fold_size > 1):
+            AUC_test[f] = roc_auc_score(test_labels,predict)
+        else:
+            AUC_test[f] = 0
         
     print("    \tMean\tStd")
     print("ACC:\t%.2f\t%.2f" % (np.mean(ACC_test), np.std(ACC_test)))
@@ -1199,6 +1214,36 @@ def early_fusion(feat, label):
     decision = np.asarray(decision)
 
     return decision
+
+
+def cross_validation_classifier(features, labels, k=10):
+    '''
+    Function to run a classifier on all features
+    '''
+
+    def tn(y_true, y_pred): return confusion_matrix(y_true, y_pred)[0, 0]
+    def fp(y_true, y_pred): return confusion_matrix(y_true, y_pred)[0, 1]
+    def fn(y_true, y_pred): return confusion_matrix(y_true, y_pred)[1, 0]
+    def tp(y_true, y_pred): return confusion_matrix(y_true, y_pred)[1, 1]
+
+    #scoring = {'tp': make_scorer(tp), 'tn': make_scorer(tn), 'fp': make_scorer(fp), 'fn': make_scorer(fn), 'accuracy': make_scorer(accuracy_score), 'auc' : make_scorer(roc_auc_score)}
+    scoring = ['roc_auc']
+    svmc = svm.SVC(random_state=0)
+    cv_results = cross_validate(svmc.fit(features, labels), features, labels, cv=k, scoring=scoring)
+    print(np.mean(cv_results['test_roc_auc']))
+    print(np.std(cv_results['test_roc_auc']))
+    print()
+
+    dtc = DecisionTreeClassifier(random_state=0,max_depth=5)
+    cv_results = cross_validate(dtc.fit(features, labels), features, labels, cv=k, scoring=scoring)
+    print(np.mean(cv_results['test_roc_auc']))
+    print(np.std(cv_results['test_roc_auc']))
+    print()
+
+    knnc = KNeighborsClassifier(3)
+    cv_results = cross_validate(knnc.fit(features, labels), features, labels, cv=k, scoring=scoring)
+    print(np.mean(cv_results['test_roc_auc']))
+    print(np.std(cv_results['test_roc_auc']))
 
 
 
