@@ -11,6 +11,7 @@ import pickle as pkl
 import pandas as pd
 import copy
 import collections
+import sklearn.metrics
 
 from scipy import pi
 from scipy import stats
@@ -19,6 +20,7 @@ from numpy import genfromtxt
 from matplotlib.backends.backend_pdf import PdfPages
 from itertools import product
 
+from sklearn import metrics
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import make_scorer
 from sklearn.metrics import confusion_matrix
@@ -26,7 +28,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import cross_validate
 from sklearn import svm
 from sklearn.metrics import auc
-from sklearn.metrics import plot_roc_curve
+#from sklearn.metrics import plot_roc_curve
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 
@@ -45,9 +47,12 @@ index_80 = [2, 12, 19, 29, 30, 44, 51, 59, 67, 73, 78]
 # listas de caidores e excluidos
 index_faller   = [2, 4, 6, 7, 9, 10, 15, 20, 27, 29, 34, 35, 40, 46, 55, 58, 59, 63, 70, 77] #20 caidores
 index_faller3M = [9, 10, 35, 40, 59, 70, 77] #7 caidores
-index_faller6M = [7, 15, 27, 34, 46, 58, 59, 63] #8 caidores, 1 recorrente
-index_faller9M = [2, 10] #2 caidores, 1 recorrente
-index_faller12M = [4, 6, 20, 29, 55, 59, 63] #7 caidores, #2 recorrente
+index_faller6M = [7, 9, 10, 15, 27, 34, 35, 40, 46, 58, 59, 63, 70, 77] #14 caidores
+index_faller9M = [2, 7, 9, 10, 15, 27, 34, 35, 40, 46, 58, 59, 63, 70, 77] #15 caidores
+
+#index_faller6M = [7, 15, 27, 34, 46, 58, 59, 63] #8 caidores, 1 recorrente
+#index_faller9M = [2, 10] #2 caidores, 1 recorrente
+#index_faller12M = [4, 6, 20, 29, 55, 59, 63] #7 caidores, #2 recorrente
 index_excluded = [5, 16, 26, 48, 65, 66] #6 excluídos
 
 # dicionario com indices e meses
@@ -917,9 +922,10 @@ def cross_validation(feature, labels, n_cutoff=100, k=10, verbose=True, mode="Fi
     if (mode == "Random"):
         indices = np.random.permutation(N)
     if (k == 10):
-        indices_strat = np.array([0, 2, 17, 30, 31, 44, 57, 69, 1, 4, 19, 32, 33, 45, 58, 70, 3, 5, 20, 34, 37, 46, 60, 72, 6, 7, 21, 35, 43, 47, 61, 8, 10, 22, 36, 48, 51, 62, 9, 11, 23, 38, 49, 54, 63, 12, 14, 25, 39, 50, 55, 65, 13, 18, 27, 40, 52, 59, 66, 15, 24, 28, 41, 53, 64, 67, 16, 26, 29, 42, 56, 68, 71]) #10-fold
+        indices_strat = np.array([0, 2, 17, 30, 31, 44, 57, 69, 1, 4, 19, 32, 33, 45, 58, 70, 3, 5, 20, 34, 37, 46, 60, 72, 6, 7, 21, 35, 43, 47, 61, 8, 10, 22, 36, 48, 51, 62, 9, 11, 23, 38, 49, 54, 63, 12, 14, 25, 39, 50, 55, 65, 13, 18, 27, 40, 52, 59, 66, 15, 24, 28, 41, 53, 64, 67, 16, 26, 29, 42, 56, 68, 71])#10-fold
     elif (k == 5):
         indices_strat = np.array([0, 2, 9, 11, 17, 23, 30, 31, 38, 44, 49, 54, 57, 63, 69, 1, 4, 12, 14, 19, 25, 32, 33, 39, 45, 50, 55, 58, 65, 70, 3, 5, 13, 18, 20, 27, 34, 37, 40, 46, 52, 59, 60, 66, 72, 6, 7, 15, 21, 24, 28, 35, 41, 43, 47, 53, 61, 64, 67, 8, 10, 16, 22, 26, 29, 36, 42, 48, 51, 56, 62, 68, 71]) #5-fold
+        
     elif (k == 73):
         indices_strat = np.array(range(73)) #Leave-one-out
 
