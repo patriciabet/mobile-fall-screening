@@ -33,7 +33,7 @@ This repository was made public in order to allow for
    in active community-dwelling older persons 
    with no recent history of falls"
 
-   the paper is currently published at Experimental Gerontology
+   the paper is currently published at Experimental Gerontology,
    link:
    https://www.sciencedirect.com/science/article/pii/S0531556520304873
        
