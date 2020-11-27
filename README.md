@@ -43,6 +43,7 @@ This repository was made public in order to allow for
    persons with no recent history of falls." Experimental Gerontology (2020): 111139.
       
    paper abstract:
+   
    Background
    Acceleration sensors are a viable option for monitoring gait 
    patterns and its application on monitoring falls and risk of falling. 
