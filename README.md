@@ -44,15 +44,15 @@ This repository was made public in order to allow for
       
    paper abstract:
    
-   Background
+   Background:
    Acceleration sensors are a viable option for monitoring gait 
    patterns and its application on monitoring falls and risk of falling. 
    However the literature still lacks prospective studies to investigate 
    such risk before the occurrence of falls.
-   Objective
+   Objective:
    To investigate features extracted from accelerometer signals with 
    the purpose of predicting future falls in individuals with no recent history of falls.
-   Methods
+   Methods:
    In this study we investigate the risk of fall in active and healthy community-dwelling 
    living older persons with no recent history of falls, using a single accelerometer and 
    variants of the Timed Up and Go (TUG) test. A prospective study was conducted with 
@@ -60,12 +60,12 @@ This repository was made public in order to allow for
    participants at the baseline, the occurrence of falls (outcome) was monitored quarterly 
    during one year. A set of frequency features were extracted from the signal and their 
    ability to predict falls was evaluated.
-   Results
+   Results:
    The best individual feature result shows an accuracy of 0.75, sensitivity of 0.71 and 
    specificity of 0.76. A fusion of the three best features increases the sensitivity to 
    0.86. On the other hand, the cut-off points of the TUG seconds, often used to assess 
    fall risk, did not demonstrate adequate sensitivity.
-   Conclusion
+   Conclusion:
    The results confirms previous evidence that accelerometer features can better estimate 
    fall risk, and support potential applications that try to infer falls risk in less 
    restricted scenarios, even in a sample stratified by age and gender composed of active 
